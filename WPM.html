@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPM Speed Reader for Researchers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <div class="w-full max-w-4xl glass-panel p-6 md:p-10">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">WPM Speed Reader</h1>
+                <p class="text-slate-500 font-medium">研究者向け英語トレーニング</p>
+            </div>
+            <div id="timerDisplay" class="text-4xl font-mono font-bold text-blue-600 bg-white px-8 py-3 rounded-2xl shadow-inner border border-slate-100">
+                00:00.0
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left: Editor -->
+            <div class="lg:col-span-2 space-y-4">
+                <div class="relative">
+                    <textarea id="textInput" rows="12" 
+                        class="w-full p-6 text-lg leading-relaxed text-slate-700 bg-white border-2 border-slate-100 rounded-3xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all shadow-sm" 
+                        placeholder="ここに英文を貼り付けてください..."></textarea>
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                    <button id="startBtn" class="flex-1 py-5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all shadow-lg hover:shadow-blue-500/30 active:scale-95 text-xl">
+                        🚀 計測開始
+                    </button>
+                    <button id="stopBtn" class="flex-1 py-5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl transition-all shadow-lg hover:shadow-rose-500/30 active:scale-95 text-xl hidden">
+                        ⏹️ 計測終了
+                    </button>
+                    <button id="speakBtn" class="px-8 py-5 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold rounded-2xl transition-all flex items-center gap-2">
+                        <span>🔊</span> 読み上げ
+                    </button>
+                    <button id="resetBtn" class="px-8 py-5 bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold rounded-2xl transition-all">
+                        リセット
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: Results & Info -->
+            <div class="space-y-6">
+                <div id="resultCard" class="bg-slate-900 text-white p-8 rounded-3xl shadow-2xl transition-all transform scale-95 opacity-0 hidden">
+                    <h2 class="text-blue-400 font-bold mb-6 text-sm tracking-widest uppercase">Performance Stats</h2>
+                    <div class="space-y-6">
+                        <div class="flex justify-between items-end border-b border-slate-800 pb-2">
+                            <span class="text-slate-400 text-sm font-medium">単語数</span>
+                            <span id="wordCountResult" class="text-2xl font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between items-end border-b border-slate-800 pb-2">
+                            <span class="text-slate-400 text-sm font-medium">時間</span>
+                            <span id="timeResult" class="text-2xl font-bold">0s</span>
+                        </div>
+                        <div class="text-center pt-4">
+                            <p class="text-blue-400 text-sm font-bold mb-1">Your WPM</p>
+                            <p id="wpmResult" class="text-6xl font-black text-white italic tracking-tighter">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white/50 p-6 rounded-3xl border border-white">
+                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="text-blue-500 text-xl">💡</span> 目安スコア
+                    </h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-center justify-between text-slate-600">
+                            <span>100 WPM</span>
+                            <span class="text-xs px-2 py-1 bg-slate-200 rounded">初級</span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-600">
+                            <span>120-150 WPM</span>
+                            <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">中級</span>
+                        </div>
+                        <div class="flex items-center justify-between text-blue-700 font-bold">
+                            <span>150-200 WPM</span>
+                            <span class="text-xs px-2 py-1 bg-blue-600 text-white rounded animate-pulse">ネイティブ</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let startTime;
+        let timerInterval;
+        const textInput = document.getElementById('textInput');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const speakBtn = document.getElementById('speakBtn');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const resultCard = document.getElementById('resultCard');
+        const wordCountResult = document.getElementById('wordCountResult');
+        const timeResult = document.getElementById('timeResult');
+        const wpmResult = document.getElementById('wpmResult');
+
+        function countWords(text) {
+            return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+        }
+
+        function updateTimer() {
+            const now = new Date();
+            const diff = now - startTime;
+            const seconds = Math.floor(diff / 1000);
+            const milliseconds = Math.floor((diff % 1000) / 100);
+            const mins = Math.floor(seconds / 60);
+            const displaySecs = (seconds % 60).toString().padStart(2, '0');
+            timerDisplay.innerText = `${mins.toString().padStart(2, '0')}:${displaySecs}.${milliseconds}`;
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (!textInput.value.trim()) {
+                alert("英文を貼り付けてください");
+                return;
+            }
+            startTime = new Date();
+            startBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            resultCard.classList.add('hidden', 'opacity-0', 'scale-95');
+            timerInterval = setInterval(updateTimer, 100);
+        });
+
+        stopBtn.addEventListener('click', () => {
+            clearInterval(timerInterval);
+            const durationInSeconds = (new Date() - startTime) / 1000;
+            const words = countWords(textInput.value);
+            const wpm = Math.round((words / durationInSeconds) * 60);
+
+            wordCountResult.innerText = words;
+            timeResult.innerText = durationInSeconds.toFixed(1) + "s";
+            wpmResult.innerText = wpm;
+
+            stopBtn.classList.add('hidden');
+            startBtn.classList.remove('hidden');
+            resultCard.classList.remove('hidden');
+            setTimeout(() => {
+                resultCard.classList.remove('opacity-0', 'scale-95');
+            }, 50);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            clearInterval(timerInterval);
+            timerDisplay.innerText = "00:00.0";
+            textInput.value = "";
+            resultCard.classList.add('hidden');
+            startBtn.classList.remove('hidden');
+            stopBtn.classList.add('hidden');
+            window.speechSynthesis.cancel();
+        });
+
+        speakBtn.addEventListener('click', () => {
+            if (!textInput.value.trim()) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(textInput.value);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9;
+            window.speechSynthesis.speak(utterance);
+        });
+    </script>
+</body>
+</html>
